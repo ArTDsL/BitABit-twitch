@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Authors>Arthur 'ArThDsL'/'ArTDsL' Dias dos Santos Lasso</Authors>
+    <Company>$(Author)</Company>
+    <Copyright>Copyright (c) 2023. $(Author). All Rights Reserved. Licensed under MIT.</Copyright>
+    <PackageProjectUrl>https://github.com/ArTDsL/BitABit-twitch</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArTDsL/BitABit-twitch</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+</Project>
