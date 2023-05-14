@@ -3,6 +3,11 @@ BitABit is a Twitch library made in C# (**.NET 6.0**) for ***Twitch.TV***!
 
 Distributed under MIT License.
 
+
+***BE AWARE: THIS IS "OIDC AUTHORIZATION CODE GRANT FLOW"*** ([check here](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#authorization-code-grant-flow)): It means that **BitABit** has a buit-in server, so be careful about distribuite the application with your TWITCH APPLICATION **SECRET TOKEN** (this is secret and cannot be shared, lol)! We **EXTREMLY RECOMMEND** that you make YOUR OWN SERVER for authentication, and use only the other functions if you are going to use **BitABit** to create a production **Client-side Application**. If you gonna use **BitABit** for **personal propouses** or **server-side** then you are safe!
+
+_PS: In the nearest future i will make a **Implicit Code Flow** for C# and integrate in BitABit._
+
 ### How to use
 
 - Import BitABit DLL in references inside your project;
