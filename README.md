@@ -10,47 +10,55 @@ _PS: In the nearest future i will make a **Implicit Code Flow** for C# and integ
 
 ### How to use
 
+## Initialize
+
 - Import BitABit DLL in references inside your project;
 
 ```csharp
 using BitABit;
-namespace YourProject{
-	public class main{
-		private static BitABit.Initialize Initialize = new BitABit.Initialize();
-		private static BitABit.auth Auth = new BitABit.auth();
-		private static string? token;
-		private static strinng? refresh_token;
-		static void Main(){
-			Initialize.Keys("YOUR_APP_CLIENT_ID", "YOUR_APP_SECRET");
-			string[] scopes = {"moderator:read:followers", "moderator:read:chatters"};
-			Auth.RequestAuth(scopes, false);
-			//output token and refresh token will come in:
-			token = auth.Token;
-			refresh_token = auth.Refresh_Token;
-			Console.WriteLine("Token: " + token);
-			Console.WriteLine("Refresh Token: " + refresh_token);
-			return;
-		}
-	}
-}
+//
+Initialize.Keys("YOUR_APP_CLIENT_ID", "YOUR_APP_SECRET");
 ```
+
+---
 
 (_i'm gonna use the above variables for all examples..._)
 
+---
+
+## Authentication (OIDC AUTHORIZATION CODE FLOW)
+
+***Code Auth***
+
+```csharp
+string[] scopes = {"moderator:read:followers", "moderator:read:chatters"};
+Auth.RequestAuth(scopes:scopes, force_verify:false);
+//output
+string? token = auth.Token;
+string? refresh_token = auth.Refresh_Token;
+Console.WriteLine("Token: " + token);
+Console.WriteLine("Refresh Token: " + refresh_token);
+```
+
+***Token Validation***
+
 To verify if Token is Valid:
 ```csharp
-bool token_valid = await Auth.IsValidToken(token);
+bool token_valid = await Auth.IsValidToken(access_token:token);
+//output
 if(token == false){
 	Console.WriteLine("Token is not valid or is expired...");
-	//generate another token using the example bellow ↓↓↓
 }
 ```
 
+***Request New Token***
+
 To generate another access token (you need previous refresh token):
 ```csharp
-await Auth.RefreshToken(refresh_token);
-token = auth.RToken;
-refresh_token = auth.RRefresh_Token;
+await Auth.RefreshToken(refresh_Token:refresh_token);
+//output
+string? token = auth.RToken;
+string? refresh_token = auth.RRefresh_Token;
 Console.WriteLine("New Token: " + token);
 Console.WriteLine("New Refresh Token: " + refresh_token);
 ```
@@ -58,5 +66,26 @@ Console.WriteLine("New Refresh Token: " + refresh_token);
 PS: _If you try to revalidate using refresh token 2/3 times and operation fails, you probably need to ask user to repeat the `RequestAuth()` process, this happens because: **User remove your app**, **User lost the refresh token for some reason** or **Twitch run into some error and she are forcing you to revalidate**._
 
 PSS: _**On a multi-thread app** is **highly recommended** that you use 1 token for multiple requests instead of re-gen another one... Se more info about this [here](https://dev.twitch.tv/docs/authentication/refresh-tokens/#handling-token-refreshes-in-a-multi-threaded-app)._
+
+---
+
+## Chat
+
+***Connecting to a Twitch.tv Chat***
+
+```csharp
+//access_token is the same you generated in RequestAuth() or RefreshToken() function. 
+await Chat.StartChat(nick:"YOUR_USER_NAME", access_token:token, channel:"CHANNEL_TO_CONNECT", debug:true);
+```
+
+***Disconnecting from a Twitch.tv Chat***
+```csharp
+//true if disconnect has been successful, otherwise will give an error an return False.
+if(await Chat.CloseChat()) {
+	Console.WriteLine("GOOD JOB!");
+}
+```
+
+_PS: `StartChat()` already make login, and get the Twitch CAPS. Also set's the loop._
 
 **more comming soon...**
