@@ -1,10 +1,10 @@
-﻿/**
+﻿/*
  * 
  * BitABit - Twitch C# Easy API
  * 
  * @file: BitABit.cs
  * @created: 2023-05-14
- * @updated: 2023-05-14
+ * @updated: 2023-05-16
  * @autor: Arthur 'ArTDsL'/'ArThDsL' Dias dos Santos Lasso
  * @copyright: Copyright (c) 2023. Arthur 'ArTDsL'/'ArThDsL' Dias dos Santos Lasso. All Rights Reserved. Distributed under MIT license.
  * 
@@ -18,8 +18,17 @@
  * 
  */
 namespace BitABit {
+    /// <summary>
+    /// Initilize Class
+    /// </summary>
     public class Initialize {
+        /// <summary>
+        /// Store and retrieve your client id;
+        /// </summary>
         public static string? ClientId;
+        /// <summary>
+        /// Store and retrieve your client secret;
+        /// </summary>
         public static string? ClientSecret;
         /// <summary>
         /// Create a new BitABit Object.

@@ -10,5 +10,6 @@
     <PackageProjectUrl>https://github.com/ArTDsL/BitABit-twitch</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ArTDsL/BitABit-twitch</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 </Project>
