@@ -31,7 +31,7 @@ using System.Collections;
 using System.ComponentModel;
 using System.Xml;
 using System.Drawing;
-#pragma warning disable CS8600, CS8602 // YOU WILL NOT SURVIVE LITTLE WARNING RATS !!!!!
+#pragma warning disable CS8600, CS8601, CS8602, CS8603, CS0219 // YOU WILL NOT SURVIVE LITTLE WARNING RATS !!!!!
 namespace BitABit {
     /// <summary>
     /// Chat Class.
@@ -60,7 +60,8 @@ namespace BitABit {
         private static CancellationToken TwitchIRCLoopCT;
         /// <summary> Twitch IRC OnTwitchIRCMessageReceived() Loop Cancelation Token Source</summary>
         private static CancellationTokenSource? TwitchIRCLoopCTS;
-        /// <summary>IRC OnTwitchIRCMessageReceived() Loop</summary>
+        /// <summary>Parsed Message List</summary>
+        public static List<MESSAGE_PARSED>? message_parsed;
         /// <returns>Set to <c>false</c> to stop the loop (not recommended if you don't wan't to close the connection).</returns>
         private static bool IRCLoop;
         private static readonly string[] IRCCMDS = new string[] { "JOIN", "NICK", "NOTICE", "PART", "PASS", "PING", "PONG", "PRIVMSG", "CLEARCHAT", "CLEARMSG", "GLOBALUSERSTATE", "HOSTTARGET", "NOTICE", "RECONNECT", "ROOMSTATE", "USERNOTICE", "USERSTATE", "WHISPER", "CAP" };
@@ -167,7 +168,30 @@ namespace BitABit {
             if(data[0] == null || data[0] == " " || data[0] == "") {
                 return;
             }
-            //parsing commands
+            //caps variables
+            string[][] BADGES = new string[50][]; //max 50 badges to parse
+            int biCount = 0;
+            Dictionary<string, Dictionary<int, string>>? EMOTES = new Dictionary<string, Dictionary<int, string>>();
+            string[]? EMOTE_SET = new string[100]; //max 100 emote-sets to parse
+            string[]? SOURCES = new string[2];
+            string[]? COMMAND = new string[2];
+            string? _emote_only = null;
+            string? _vip = null;
+            string? _color = null;
+            string? _id = null;
+            string? _mod = null;
+            string? _subscriber = null;
+            string? _room_id = null;
+            string? _turbo = null;
+            string? _tmi_sent_ts = null;
+            string? _user_id = null;
+            string? _user_type = null;
+            string? _display_name = null;
+            string? _host = null;
+            bool? isEmotesNull = true;
+            bool? isBadgesNull = true;
+            bool? isEmoteSetNull = true;
+            //commands variables
             string _cmd = "";
             int _cmd_pos = 0;
             bool isParam = false;
@@ -176,6 +200,8 @@ namespace BitABit {
                 for(int l = 0; l < IRCCMDS.Count(); l++) {
                     if((" " + data[i] + " ") == (" " + IRCCMDS[l] + " ")) {//adding spaces, this will avoid something like "emojis:landCAPster;" got between words or something like...
                         _cmd = IRCCMDS[l];
+                        COMMAND[0] = _cmd;
+                        COMMAND[1] = "#" + _channel;
                         _cmd_pos = i;
                         isParam = true;
                         break;
@@ -189,6 +215,8 @@ namespace BitABit {
                     for(int l = 0; l < IRCODES.Count(); l++) {
                         if((" " + data[i] + " ") == (" " + IRCODES[l] + " ")) {//adding spaces (same as the other)
                             _cmd = IRCODES[l];
+                            COMMAND[0] = _cmd;
+                            COMMAND[1] = "#" + _channel;
                             _cmd_pos = i;
                             isParam = false;
                             break;
@@ -199,14 +227,6 @@ namespace BitABit {
                 }
             }
             //parsing caps
-            string[][] BADGES = new string[50][]; //max 50 badges to parse
-            int biCount = 0;
-            var EMOTES = new Dictionary<string, Dictionary<int, string>>();
-            string[] EMOTE_SET = new string[100]; //max 100 emote-sets to parse
-            string _emote_only, _vip, _color, _id, _mod, _subscriber, _room_id, _turbo, _tmi_sent_ts, _user_id, _user_type, _display_name, _host;
-            bool isEmotesNull = true;
-            bool isBadgesNull = true;
-            bool isEmoteSetNull = true;
             if(data[0].Contains("@") == true) {
                 //contain caps,
                 // count badge-info (add to all arrays, so we don't replace any existent)
@@ -399,6 +419,10 @@ namespace BitABit {
                             _user_id = property[1];
                             break;
                         }
+                        case "id": {
+                            _id = property[1];
+                            break;
+                        }
                         case "vip": {
                             _vip = property[1];
                             break;
@@ -504,6 +528,7 @@ namespace BitABit {
                     break;
                 }
                 case "GLOBALUSERSTATE": {
+                    _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "Global state message received, ensure connection and authentication.", DebugMessageType.INFO);
                     break;
                 }
                 case "HOSTTARGET": {
@@ -545,6 +570,40 @@ namespace BitABit {
                     break;
                 }
             }
+            //getting host
+            for(int i = 0; i < data.Count(); i++) { 
+                if(data[i].Contains(":" + _nick + "!" + _nick + "@" + _nick)) {
+                    _host = data[i];
+                }
+            }
+            SOURCES[0] = _nick;
+            SOURCES[1] = _host;
+            //list the LAST MESSAGE
+            message_parsed = new List<MESSAGE_PARSED>();
+            message_parsed.Add(new MESSAGE_PARSED() { 
+                badges = BADGES,
+                color = _color,
+                display_name= _display_name,
+                emote_only = _emote_only,
+                emotes = EMOTES,
+                id = _id,
+                mod = _mod,
+                room_id = _room_id,
+                subscriber = _subscriber,
+                turbo = _turbo,
+                tmi_sent_ts = _tmi_sent_ts,
+                user_id = _user_id,
+                user_type = _user_type,
+                source = SOURCES,
+                command = COMMAND
+            });
+        }
+        /// <summary>
+        /// Get the last messsage received in chat
+        /// </summary>
+        /// <returns>Last message received in chat in List format <see cref="List{MESSAGE_PARSED}"/></returns>
+        public List<MESSAGE_PARSED> GetLastMessage() {
+            return message_parsed;
         }
         /// <summary>
         /// Handle IRC received messages.
@@ -578,21 +637,38 @@ namespace BitABit {
     /// <summary>
     /// Parsed Messages List
     /// </summary>
-    public class CAPS_PARSED {
-        public string[][] badges { get; set; }
-        public string color { get; set; }
-        public string display_name { get; set; }
-        public int emote_only { get; set; }
-        public Dictionary<string, Dictionary<int, string>> emotes { get; set; }
-        public string id { get; set; }
-        public int mod { get; set; }
-        public int room_id { get; set; }
-        public int subscriber { get; set; }
-        public int turbo { get; set; }
-        public Int64 tmi_sent_ts { get; set; }
-        public Int64 user_id { get; set; }
-        public string user_type { get; set; }
-        public string[] source { get; set; }
-        public string[] command { get; set; }
+    public class MESSAGE_PARSED {
+        /// <summary>Badges</summary>
+        public string[][]? badges { get; set; }
+        /// <summary>Color</summary>
+        public string? color { get; set; }
+        /// <summary>Display Name</summary>
+        public string? display_name { get; set; }
+        /// <summary>Emotes Only</summary>
+        public string? emote_only { get; set; }
+        /// <summary>Emotes</summary>
+        public Dictionary<string, Dictionary<int, string>>? emotes { get; set; }
+        /// <summary>ID</summary>
+        public string? id { get; set; }
+        /// <summary>Mod</summary>
+        public string? mod { get; set; }
+        /// <summary>Room ID</summary>
+        public string? room_id { get; set; }
+        /// <summary>Subscriber</summary>
+        public string? subscriber { get; set; }
+        /// <summary>Turbo</summary>
+        public string? turbo { get; set; }
+        /// <summary>Time Stamp</summary>
+        public string? tmi_sent_ts { get; set; }
+        /// <summary>User ID</summary>
+        public string? user_id { get; set; }
+        /// <summary>User Type</summary>
+        public string? user_type { get; set; }
+        /// <summary>Source</summary>
+        public string[]? source { get; set; }
+        /// <summary>Command</summary>
+        public string[]? command { get; set; }
+        /// <summary>Parameters</summary>
+        public string? parameters;
     }
 }
