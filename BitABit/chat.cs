@@ -4,7 +4,7 @@
  * 
  * @file: chat.cs
  * @created: 2023-05-14
- * @updated: 2023-05-18
+ * @updated: 2023-05-19
  * @autor: Arthur 'ArTDsL'/'ArThDsL' Dias dos Santos Lasso
  * @copyright: Copyright (c) 2023. Arthur 'ArTDsL'/'ArThDsL' Dias dos Santos Lasso. All Rights Reserved. Distributed under MIT license.
  * 
@@ -31,6 +31,7 @@ using System.Collections;
 using System.ComponentModel;
 using System.Xml;
 using System.Drawing;
+using System.Runtime.CompilerServices;
 #pragma warning disable CS8600, CS8601, CS8602, CS8603, CS0219 // YOU WILL NOT SURVIVE LITTLE WARNING RATS !!!!!
 namespace BitABit {
     /// <summary>
@@ -38,6 +39,11 @@ namespace BitABit {
     /// </summary>
     public class chat {
         private userful _userful = new userful();
+        /// <summary>Connection attempts of reconnect</summary>
+        private static int retry = 1;
+        private static bool _debug;
+        private static string? _access_token;
+        private static bool IsRetrying;
         /// <summary>Server</summary>
         private static readonly string server = "irc.chat.twitch.tv"; //Non-SSL standard
         /// <summary>Port</summary>
@@ -72,14 +78,18 @@ namespace BitABit {
         /// <param name="nick">User nickname</param>
         /// <param name="access_token">Valid Access Token</param>
         /// <param name="channel">Channel name (current is user twitch channel's name (ex. <c>https://twitch.tv/arthdsl</c> would be <c>#arthdsl</c>)), DON'T USE # in the beggin.</param>
+        /// <param name="debug">Enable debug messages comming from IRC Socket (may you receive every single debug message available, even a single PING)!</param>
         /// <returns></returns>
-        public async Task StartChat(string nick, string access_token, string channel) {
-            int retry = 0;
+        public async Task StartChat(string nick, string access_token, string channel, bool debug = false) {
             bool conn = false;
+            _debug = debug;
             IRCLoop = true;
             _nick = nick;
             _channel = channel;
-            _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Connecting to " + server + ":" + port, DebugMessageType.INFO);
+            _access_token = access_token;
+            if(IsRetrying == false) { 
+                _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Connecting to " + server + ":" + port, DebugMessageType.INFO);
+            }
             TwitchIRCCli = new TcpClient();
             while(retry < 5 && conn == false) {
                 try {
@@ -87,6 +97,7 @@ namespace BitABit {
                     conn = true;
                     _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Connection established", DebugMessageType.SUCCESS);
                 } catch(Exception e) {
+                    IsRetrying = true;
                     retry++;
                     _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Unable to Start Chat Connection: " + e.Message + " - [ Retrying, attempt {=Yellow}" + retry + "{/} from {=Red}5{/} ]", DebugMessageType.WARNING);
                 }
@@ -125,6 +136,21 @@ namespace BitABit {
             }
         }
         /// <summary>
+        /// Close connection (used when system are retrying connection)
+        /// </summary>
+        /// <returns></returns>
+        private void CloseConnection() {
+            try { 
+                TwitchIRCStreamReader.Close();
+                TwitchIRCStreamWriter.Close();
+                TwitchIRCStream.Close();
+                TwitchIRCCli.Close();
+            } catch(Exception e) {
+                _userful.SendConsoleLog("Twitch Chat", "CloseChat()", "Unable to close connection: " + e.Message, DebugMessageType.ERROR);
+            }
+            return;
+        }
+        /// <summary>
         /// Login into Twitch IRC
         /// </summary>
         /// <param name="pass">OAuth Access Token</param>
@@ -142,6 +168,9 @@ namespace BitABit {
         private async Task JoinChannel(string channel) {
             _userful.SendConsoleLog("Twitch Chat", "JoinChannel()", "Trying to join channel #" + channel, DebugMessageType.INFO);
             await TwitchIRCStreamWriter.WriteLineAsync("JOIN #" + channel);
+            //confirm that no retry is running anymore (yes, it come this far)
+            retry = 0;
+            IsRetrying = false;
             return;
         }
         /// <summary>
@@ -464,29 +493,35 @@ namespace BitABit {
                      */
                 }
             }
-            if(isBadgesNull == false) {
-                for(int i = 0; i < BADGES.Count(); i++) {
-                    if(BADGES[i] != null) { 
-                    Console.WriteLine(": ID [" + BADGES[i][0] + "] | L [" + BADGES[i][1] + "]");
+            //
+            //--------------- ↓↓ Test Only [ will be removed ] ↓↓ ---------------
+            if(_debug == true) { 
+                if(isBadgesNull == false) {
+                    for(int i = 0; i < BADGES.Count(); i++) {
+                        if(BADGES[i] != null) { 
+                        Console.WriteLine(": ID [" + BADGES[i][0] + "] | L [" + BADGES[i][1] + "]");
+                        }
+                    }
+                }
+                if(isEmotesNull == false) {
+                    foreach(var item in EMOTES) {
+                        Console.Write("\nEMOTE: ID [" + item.Key + "] | ");
+                        foreach(var itemm in item.Value) {
+                            Console.Write("[" + itemm.Value + "]");
+                        }
+                        Console.Write("\n");
+                    }
+                }
+                if(isEmoteSetNull == false) {
+                    foreach(var item in EMOTE_SET) {
+                        if(item != null) {
+                            Console.WriteLine("EMOTE_SET: " + item);
+                        }
                     }
                 }
             }
-            if(isEmotesNull == false) {
-                foreach(var item in EMOTES) {
-                    Console.Write("\nEMOTE: ID [" + item.Key + "] | ");
-                    foreach(var itemm in item.Value) {
-                        Console.Write("[" + itemm.Value + "]");
-                    }
-                    Console.Write("\n");
-                }
-            }
-            if(isEmoteSetNull == false) {
-                foreach(var item in EMOTE_SET) {
-                    if(item != null) {
-                        Console.WriteLine("EMOTE_SET: " + item);
-                    }
-                }
-            }
+            //--------------- ↑↑ Test Only [ will be removed ] ↑↑ ---------------
+            //
             switch(_cmd) {
                 //normal IRC messages
                 case "NOTICE": {
@@ -615,20 +650,36 @@ namespace BitABit {
             }
             await Task.Run(async () => {
                 userful usf = new userful();
-                
+                chat Chat = new chat();
                 while(chat.IRCLoop == true) {
                     if(IRCLoop == false) {
                         break;
                     }
+                    try { 
                     string? line = await chat.TwitchIRCStreamReader.ReadLineAsync();
                     if(line == null || line == " " || line == "") {
                         line = "NULL_PARSE";
                     } else {
                         //debug
-                        usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", line, DebugMessageType.INFO);
+                        if(_debug == true) {
+                            usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", line, DebugMessageType.INFO);
+                        }
                         string[]? splited_line = line.Split(" ");
-                        chat Chat = new chat();
                         await Chat.ParseInput(splited_line);
+                    }
+                    }catch(Exception e) {
+                        Chat.CloseConnection();
+                        if(_debug == true) {
+                            usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "Fail to connect " + e.Message + " [ Retrying to connect, attempt {=Yellow}" + retry + "{/} from {=Green}5{/} ]", DebugMessageType.INFO);
+                        }
+                        retry++;
+                        IsRetrying = true;
+                        if(_nick != null && _access_token != null && _channel != null) {
+                            await Chat.StartChat(_nick, _access_token, _channel, _debug);
+                        } else {
+                            usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "There is something wrong with your connection and authentication, please try again...", DebugMessageType.ERROR);
+                        }
+                        return;
                     }
                 }
             });
