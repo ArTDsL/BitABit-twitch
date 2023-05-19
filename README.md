@@ -88,4 +88,12 @@ if(await Chat.CloseChat()) {
 
 _PS: `StartChat()` already make login, and get the Twitch CAPS. Also set's the loop._
 
+***Get Last Message From Chat***
+
+```csharp
+var last_message = Chat.GetLastMessage();
+//will return as a List<MESSAGE_PARSED>
+```
+
+
 **more comming soon...**
