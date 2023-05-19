@@ -24,4 +24,4 @@ jobs:
       run: dotnet restore
       working-directory: BitABit
     - name: Build
-      run: dotnet build --configuration Debug BitABit.sln
+      run: dotnet build --configuration Debug BitABit/BitABit.sln
