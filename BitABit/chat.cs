@@ -91,7 +91,7 @@ namespace BitABit {
                 _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Connecting to " + server + ":" + port, DebugMessageType.INFO);
             }
             TwitchIRCCli = new TcpClient();
-            while(retry < 5 && conn == false) {
+            while(retry <= 5 && conn == false) {
                 try {
                     TwitchIRCCli.Connect(server, port);
                     conn = true;
@@ -100,6 +100,9 @@ namespace BitABit {
                     IsRetrying = true;
                     retry++;
                     _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Unable to Start Chat Connection: " + e.Message + " - [ Retrying, attempt {=Yellow}" + retry + "{/} from {=Red}5{/} ]", DebugMessageType.WARNING);
+                    if(retry == 5 && conn == false) {
+                        Environment.Exit(1);
+                    }
                 }
             }
             TwitchIRCStream = TwitchIRCCli.GetStream();
@@ -169,8 +172,6 @@ namespace BitABit {
             _userful.SendConsoleLog("Twitch Chat", "JoinChannel()", "Trying to join channel #" + channel, DebugMessageType.INFO);
             await TwitchIRCStreamWriter.WriteLineAsync("JOIN #" + channel);
             //confirm that no retry is running anymore (yes, it come this far)
-            retry = 0;
-            IsRetrying = false;
             return;
         }
         /// <summary>
@@ -217,6 +218,7 @@ namespace BitABit {
             string? _user_type = null;
             string? _display_name = null;
             string? _host = null;
+            string? _param = null;
             bool? isEmotesNull = true;
             bool? isBadgesNull = true;
             bool? isEmoteSetNull = true;
@@ -253,6 +255,12 @@ namespace BitABit {
                             continue;
                         }
                     }
+                }
+            }
+            //getting host
+            for(int i = 0; i < data.Count(); i++) {
+                if(data[i].Contains("tmi.twitch.tv")) {
+                    _host = data[i].Substring(1, data[i].Length - 1);
                 }
             }
             //parsing caps
@@ -493,6 +501,19 @@ namespace BitABit {
                      */
                 }
             }
+            //parsing parameters
+            if((_cmd_pos + 2) < data.Count()) {//parameter position
+                int param_pos = _cmd_pos + 2;
+                for(int i = param_pos; i < data.Count(); i++) {
+                    if(param_pos == i) {
+                        _param += data[i].Substring(1, data[i].Length - 1);
+                    } else {
+                        _param += " " + data[i];
+                    }
+                }
+            } else {
+                _param = null;
+            }
             //
             //--------------- ↓↓ Test Only [ will be removed ] ↓↓ ---------------
             if(_debug == true) { 
@@ -519,9 +540,9 @@ namespace BitABit {
                         }
                     }
                 }
+                Console.WriteLine("HOST: " + _host);
             }
             //--------------- ↑↑ Test Only [ will be removed ] ↑↑ ---------------
-            //
             switch(_cmd) {
                 //normal IRC messages
                 case "NOTICE": {
@@ -567,9 +588,20 @@ namespace BitABit {
                     break;
                 }
                 case "HOSTTARGET": {
-                    break;
+                    string[] hostcase = _param.Split(" ");
+                    if(hostcase[0] == "-") {
+                        //stop hosting
+                        _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", _channel + " stop hosting with " + _param[1] + " viewers", DebugMessageType.INFO);
+                        break;
+                    } else {
+                        //start hosting
+                        _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", _channel + " start hosting " + _param[0] + " with " + _param[1] + " viewers!", DebugMessageType.INFO);
+                        break;
+                    }
                 }
                 case "RECONNECT": {
+                    _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "BitABit Received a Twitch Mainteance WARNING! Please, reconnect to avoid termination.", DebugMessageType.WARNING);
+                    await Task.Delay(10000);
                     break;
                 }
                 case "ROOMSTATE": {
@@ -582,6 +614,7 @@ namespace BitABit {
                     break;
                 }
                 case "WHISPER": {
+                    //<to-user> is one parameter before command but he is also the HOST
                     break;
                 }
                 case "001": case "002": case "003": case "004": case "375": case "372": case "376": {
@@ -589,6 +622,8 @@ namespace BitABit {
                         //login successful
                         _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Login successful", DebugMessageType.SUCCESS);
                         login_count = 0;
+                        retry = 0;
+                        IsRetrying = false;
                         //Connect user to channel
                         if(_channel != null) {
                             await JoinChannel(_channel);
@@ -604,15 +639,11 @@ namespace BitABit {
                     _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "User joined in channel #" + _channel, DebugMessageType.SUCCESS);
                     break;
                 }
+            }            
+            //test message param
+            if(_debug == true && _param != null) {
+                _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "PARAMETER: " + _param, DebugMessageType.INFO);
             }
-            //getting host
-            for(int i = 0; i < data.Count(); i++) { 
-                if(data[i].Contains(":" + _nick + "!" + _nick + "@" + _nick)) {
-                    _host = data[i];
-                }
-            }
-            SOURCES[0] = _nick;
-            SOURCES[1] = _host;
             //list the LAST MESSAGE
             message_parsed = new List<MESSAGE_PARSED>();
             message_parsed.Add(new MESSAGE_PARSED() { 
@@ -630,7 +661,8 @@ namespace BitABit {
                 user_id = _user_id,
                 user_type = _user_type,
                 source = SOURCES,
-                command = COMMAND
+                command = COMMAND,
+                parameters = _param
             });
         }
         /// <summary>
@@ -656,25 +688,25 @@ namespace BitABit {
                         break;
                     }
                     try { 
-                    string? line = await chat.TwitchIRCStreamReader.ReadLineAsync();
-                    if(line == null || line == " " || line == "") {
-                        line = "NULL_PARSE";
-                    } else {
-                        //debug
-                        if(_debug == true) {
-                            usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", line, DebugMessageType.INFO);
+                        string? line = await chat.TwitchIRCStreamReader.ReadLineAsync();
+                        if(line == null || line == " " || line == "") {
+                            line = "NULL_PARSE";
+                        } else {
+                            //debug
+                            if(_debug == true) {
+                                usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", line, DebugMessageType.INFO);
+                            }
+                            string[]? splited_line = line.Split(" ");
+                            await Chat.ParseInput(splited_line);
                         }
-                        string[]? splited_line = line.Split(" ");
-                        await Chat.ParseInput(splited_line);
-                    }
                     }catch(Exception e) {
                         Chat.CloseConnection();
                         if(_debug == true) {
                             usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "Fail to connect " + e.Message + " [ Retrying to connect, attempt {=Yellow}" + retry + "{/} from {=Green}5{/} ]", DebugMessageType.INFO);
                         }
-                        retry++;
-                        IsRetrying = true;
                         if(_nick != null && _access_token != null && _channel != null) {
+                            retry++;
+                            IsRetrying = true;
                             await Chat.StartChat(_nick, _access_token, _channel, _debug);
                         } else {
                             usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "There is something wrong with your connection and authentication, please try again...", DebugMessageType.ERROR);
