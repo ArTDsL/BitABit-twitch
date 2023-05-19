@@ -1,4 +1,4 @@
-# BitABit-twitch
+# BitABit - Twitch Lib for C#
 
 ---
 ![build - passing](https://img.shields.io/badge/build-passing-lime.svg) ![.NET CORE 6.0](https://img.shields.io/badge/.NETCore-6.0-blue.svg) ![build - development](https://img.shields.io/badge/status-development-orange.svg) ![Licensed under MIT](https://img.shields.io/badge/License-MIT-lime.svg) ![Open Source](https://img.shields.io/badge/Community-Open%20Source-white.svg) ![Open for Contributions](https://img.shields.io/badge/open%20for-contributions-skyblue.svg) ![C#](https://img.shields.io/badge/C%23-lime.svg)
