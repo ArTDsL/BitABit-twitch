@@ -171,7 +171,15 @@ namespace BitABit {
         private async Task JoinChannel(string channel) {
             _userful.SendConsoleLog("Twitch Chat", "JoinChannel()", "Trying to join channel #" + channel, DebugMessageType.INFO);
             await TwitchIRCStreamWriter.WriteLineAsync("JOIN #" + channel);
-            //confirm that no retry is running anymore (yes, it come this far)
+            return;
+        }
+        /// <summary>
+        /// Send a message on connected chat.
+        /// </summary>
+        /// <param name="message">Message that you want to send.</param>
+        /// <returns></returns>
+        public async Task SendChatMessage(string message) {
+            await TwitchIRCStreamWriter.WriteLineAsync("PRIVMSG #" + _channel + " :" + message);
             return;
         }
         /// <summary>
