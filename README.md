@@ -2,7 +2,7 @@
 
 ---
 
-![Main Branch Workflow](https://github.com/ArTDsL/BitABit-twitch/actions/workflows/dotnet.yml/badge.svg?branch=main) ![.NET CORE 6.0](https://img.shields.io/badge/.NETCore-6.0-blue.svg) ![build - development](https://img.shields.io/badge/status-development-orange.svg) ![Licensed under MIT](https://img.shields.io/badge/License-MIT-lime.svg) ![Open Source](https://img.shields.io/badge/Community-Open%20Source-white.svg) ![Open for Contributions](https://img.shields.io/badge/open%20for-contributions-skyblue.svg) ![C#](https://img.shields.io/badge/C%23-lime.svg)
+[![Main Branch Workflow](https://github.com/ArTDsL/BitABit-twitch/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/ArTDsL/BitABit-twitch) [![.NET CORE 6.0](https://img.shields.io/badge/.NETCore-6.0-blue.svg)](https://dotnet.microsoft.com/pt-br/download/dotnet/6.0) [![build - development](https://img.shields.io/badge/status-development-orange.svg)](!#) [![Licensed under MIT](https://img.shields.io/badge/License-MIT-lime.svg)](LICENSE) [![Open Source](https://img.shields.io/badge/Community-Open%20Source-white.svg)](!#) [![Open for Contributions](https://img.shields.io/badge/open%20for-contributions-skyblue.svg)](!#) [![C#](https://img.shields.io/badge/C%23-lime.svg)](https://learn.microsoft.com/pt-br/dotnet/csharp/)
 ---
 
 BitABit is a Twitch library made in C# (**.NET 6.0**) for ***Twitch.TV***!
@@ -101,5 +101,10 @@ var last_message = Chat.GetLastMessage();
 //will return as a List<MESSAGE_PARSED>
 ```
 
+***Send a Normal Message in Chat***
+_User must be connected_
+```csharp
+await Chat.SendChatMessage("Hello World from BitABit!");
+```
 
 **more comming soon...**
