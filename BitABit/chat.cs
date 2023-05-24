@@ -4,7 +4,7 @@
  * 
  * @file: chat.cs
  * @created: 2023-05-14
- * @updated: 2023-05-19
+ * @updated: 2023-05-24
  * @autor: Arthur 'ArTDsL'/'ArThDsL' Dias dos Santos Lasso
  * @copyright: Copyright (c) 2023. Arthur 'ArTDsL'/'ArThDsL' Dias dos Santos Lasso. All Rights Reserved. Distributed under MIT license.
  * 
@@ -24,6 +24,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using BitABit.utils;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Reflection.PortableExecutable;
 using System.Threading.Channels;
 using System.Diagnostics;
@@ -32,8 +34,13 @@ using System.ComponentModel;
 using System.Xml;
 using System.Drawing;
 using System.Runtime.CompilerServices;
-#pragma warning disable CS8600, CS8601, CS8602, CS8603, CS0219 // YOU WILL NOT SURVIVE LITTLE WARNING RATS !!!!!
+using System.Security.Cryptography.X509Certificates;
+#pragma warning disable CS8600, CS8601, CS8602, CS8603, CS0219, CS8604 // YOU WILL NOT SURVIVE LITTLE WARNING RATS !!!!!
 namespace BitABit {
+    /// <summary>
+    /// Delegate to deal with received chat messages (user).
+    /// </summary>
+    public delegate void OnChatMessageReceived();
     /// <summary>
     /// Chat Class.
     /// </summary>
@@ -68,6 +75,12 @@ namespace BitABit {
         private static CancellationTokenSource? TwitchIRCLoopCTS;
         /// <summary>Parsed Message List</summary>
         public static List<MESSAGE_PARSED>? message_parsed;
+        /// <summary> Last Message Cache</summary>
+        public static List<MESSAGE_PARSED>? _last_msgCache { get; set; }
+        /// <summary>Event Receive Chat Message</summary>
+        public event OnChatMessageReceived OnChatMessageReceived = new OnChatMessageReceived(fnull);
+        //Event Variables (loop)
+        private static bool NOTIFY_MsgRecv = false;
         /// <returns>Set to <c>false</c> to stop the loop (not recommended if you don't wan't to close the connection).</returns>
         private static bool IRCLoop;
         private static readonly string[] IRCCMDS = new string[] { "JOIN", "NICK", "NOTICE", "PART", "PASS", "PING", "PONG", "PRIVMSG", "CLEARCHAT", "CLEARMSG", "GLOBALUSERSTATE", "HOSTTARGET", "NOTICE", "RECONNECT", "ROOMSTATE", "USERNOTICE", "USERSTATE", "WHISPER", "CAP" };
@@ -87,7 +100,7 @@ namespace BitABit {
             _nick = nick;
             _channel = channel;
             _access_token = access_token;
-            if(IsRetrying == false) { 
+            if(IsRetrying == false) {
                 _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Connecting to " + server + ":" + port, DebugMessageType.INFO);
             }
             TwitchIRCCli = new TcpClient();
@@ -105,6 +118,7 @@ namespace BitABit {
                     }
                 }
             }
+            Callback_Exec();
             TwitchIRCStream = TwitchIRCCli.GetStream();
             TwitchIRCStreamWriter = new StreamWriter(TwitchIRCStream) { NewLine = "\r\n", AutoFlush = true };
             TwitchIRCStreamReader = new StreamReader(TwitchIRCStream);
@@ -143,7 +157,7 @@ namespace BitABit {
         /// </summary>
         /// <returns></returns>
         private void CloseConnection() {
-            try { 
+            try {
                 TwitchIRCStreamReader.Close();
                 TwitchIRCStreamWriter.Close();
                 TwitchIRCStream.Close();
@@ -307,7 +321,7 @@ namespace BitABit {
                                 biCount += 1;
                             }
                             string badge_check = splitted_tags[i].Replace("badge-info=", String.Empty).Replace("badges=", String.Empty);
-                            if(badge_check != null || badge_check != "" || badge_check != " ") { 
+                            if(badge_check != null || badge_check != "" || badge_check != " ") {
                                 string[] _badges = badge_check.Split("/");
                                 bool can_go = true;
                                 foreach(string b in _badges) {
@@ -327,7 +341,7 @@ namespace BitABit {
                                 }
                             }
                         }
-                    }else
+                    } else
                     //parsing emotes
                     if(splitted_tags[i].Contains("emotes=")) {
                         if(splitted_tags[i].Contains("/")) {
@@ -377,7 +391,7 @@ namespace BitABit {
                             }
                         } else {
                             //unique emote parsing
-                            if(splitted_tags[i].Replace("emotes=", "").Contains(":")) { 
+                            if(splitted_tags[i].Replace("emotes=", "").Contains(":")) {
                                 string[] _emote = splitted_tags[i].Replace("emotes=", "").Split(":");
                                 //check if emote has multipos (repeat)
                                 string emote_splitted_name = _emote[0];
@@ -386,7 +400,7 @@ namespace BitABit {
                                     string[] _emote_splitted_pos = _emote[1].Split(",");
                                     bool can_go = true;
                                     foreach(string e_p in _emote_splitted_pos) {
-                                    
+
                                         if(e_p == null || e_p == "" || e_p == " " || e_p == String.Empty) {
                                             isEmotesNull = true;
                                             can_go = false;
@@ -420,9 +434,9 @@ namespace BitABit {
                                 }
                             }
                         }
-                    }else
+                    } else
                     //parsing emote sets
-                    if(splitted_tags[i].Contains("emote-sets=")) { 
+                    if(splitted_tags[i].Contains("emote-sets=")) {
                         if(splitted_tags[i].Contains(",")) {
                             //more than 1
                             string[] _emote_sets = splitted_tags[i].Replace("emote-sets=", "").Split(",");
@@ -432,7 +446,7 @@ namespace BitABit {
                                 }
                             }
                             if(_emote_sets != null) {
-                                for(int l = 0; l <_emote_sets.Count(); l++) {
+                                for(int l = 0; l < _emote_sets.Count(); l++) {
                                     EMOTE_SET[l] = _emote_sets[l];
                                 }
                                 isEmoteSetNull = false;
@@ -524,11 +538,11 @@ namespace BitABit {
             }
             //
             //--------------- ↓↓ Test Only [ will be removed ] ↓↓ ---------------
-            if(_debug == true) { 
+            if(_debug == true) {
                 if(isBadgesNull == false) {
                     for(int i = 0; i < BADGES.Count(); i++) {
-                        if(BADGES[i] != null) { 
-                        Console.WriteLine(": ID [" + BADGES[i][0] + "] | L [" + BADGES[i][1] + "]");
+                        if(BADGES[i] != null) {
+                            Console.WriteLine(": ID [" + BADGES[i][0] + "] | L [" + BADGES[i][1] + "]");
                         }
                     }
                 }
@@ -625,7 +639,13 @@ namespace BitABit {
                     //<to-user> is one parameter before command but he is also the HOST
                     break;
                 }
-                case "001": case "002": case "003": case "004": case "375": case "372": case "376": {
+                case "001":
+                case "002":
+                case "003":
+                case "004":
+                case "375":
+                case "372":
+                case "376": {
                     if(login_count >= 6) {
                         //login successful
                         _userful.SendConsoleLog("Twitch Chat", "StartChat()", "Login successful", DebugMessageType.SUCCESS);
@@ -647,17 +667,17 @@ namespace BitABit {
                     _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "User joined in channel #" + _channel, DebugMessageType.SUCCESS);
                     break;
                 }
-            }            
+            }
             //test message param
             if(_debug == true && _param != null) {
                 _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "PARAMETER: " + _param, DebugMessageType.INFO);
             }
             //list the LAST MESSAGE
             message_parsed = new List<MESSAGE_PARSED>();
-            message_parsed.Add(new MESSAGE_PARSED() { 
+            message_parsed.Add(new MESSAGE_PARSED() {
                 badges = BADGES,
                 color = _color,
-                display_name= _display_name,
+                display_name = _display_name,
                 emote_only = _emote_only,
                 emotes = EMOTES,
                 id = _id,
@@ -672,30 +692,43 @@ namespace BitABit {
                 command = COMMAND,
                 parameters = _param
             });
+            I_OnChatMessageReceived();
+        }
+        /// <summary>
+        /// Null returning method to avoid null exception on event creation.
+        /// </summary>
+        private static void fnull(){
+            return;
         }
         /// <summary>
         /// Get the last messsage received in chat
         /// </summary>
         /// <returns>Last message received in chat in List format <see cref="List{MESSAGE_PARSED}"/></returns>
         public List<MESSAGE_PARSED> GetLastMessage() {
-            return message_parsed;
+            if(message_parsed.Count() >= 1) {
+                return chat.message_parsed;
+            }
+            List<MESSAGE_PARSED> n = new List<MESSAGE_PARSED>();
+            n = null;
+            return n;
         }
         /// <summary>
-        /// Handle IRC received messages.
+        /// Handle IRC received message (ALL);
         /// </summary>
         /// <returns>Returns a list of with the parsed message.</returns>
-        static async void OnTwitchIRCMessageReceived(object? obj) {
+        private static void OnTwitchIRCMessageReceived(object? obj) {
             if(obj != null) {
                 TwitchIRCLoopCT = (CancellationToken)obj;
             }
-            await Task.Run(async () => {
+            Thread T = new Thread(async () => {
+                //await Task.Run(async () => {
                 userful usf = new userful();
                 chat Chat = new chat();
                 while(chat.IRCLoop == true) {
                     if(IRCLoop == false) {
                         break;
                     }
-                    try { 
+                    try {
                         string? line = await chat.TwitchIRCStreamReader.ReadLineAsync();
                         if(line == null || line == " " || line == "") {
                             line = "NULL_PARSE";
@@ -707,7 +740,7 @@ namespace BitABit {
                             string[]? splited_line = line.Split(" ");
                             await Chat.ParseInput(splited_line);
                         }
-                    }catch(Exception e) {
+                    } catch(Exception e) {
                         Chat.CloseConnection();
                         if(_debug == true) {
                             usf.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "Fail to connect " + e.Message + " [ Retrying to connect, attempt {=Yellow}" + retry + "{/} from {=Green}5{/} ]", DebugMessageType.INFO);
@@ -721,6 +754,35 @@ namespace BitABit {
                         }
                         return;
                     }
+                }
+            });
+            T.Start();
+        }
+        //Handle Callbacks
+        private void Callback_Exec() {
+            Thread T = new Thread(() => {
+                while(true) {
+                    if(chat.NOTIFY_MsgRecv == true) {
+                        OnChatMessageReceived.Invoke();
+                        chat.NOTIFY_MsgRecv = false;
+                    }
+                    Thread.Yield(); //avoid deadlocks
+                }
+            });
+            T.Start();
+        }
+        //----------------- EVENT HANDLER FUNCTIONS -----------------------
+        /// <summary> Handles Received messages (Chat user messages).</summary>
+        private void I_OnChatMessageReceived() {
+            Task task = Task.Run(() => {
+                chat Chat = new chat();
+                List<MESSAGE_PARSED> last_message = Chat.GetLastMessage();
+                if(last_message != null && chat._last_msgCache != last_message) {
+                    if(last_message.Count() >= 1) {
+                        Console.WriteLine("COLOR: " + last_message[0].color);
+                        chat.NOTIFY_MsgRecv = true;
+                    }
+                    _last_msgCache = last_message;
                 }
             });
         }
