@@ -114,7 +114,10 @@ _executes every time that a chat user sent a message_
 ```csharp
 Chat.OnChatMessageReceived += Chat_OnChatMessageReceived;
 private static void Chat_OnChatMessageReceived() {
-    Console.WriteLine("New message received.");
+	//example showing how to display user name that send the message
+	if(message != null){
+    	Console.WriteLine("New message received from {0}.", message[0].display_name); //chat.message[0] always contains the last message sent in chat!
+    }
     /* Do your stuff (exec after the message has been parsed)... */
 }
 ```
@@ -124,6 +127,7 @@ _executes when user authenticate with success in IRC_
 ```csharp
 Chat.OnChatLogin += Chat_OnChatLogin;
 private static void Chat_OnChatLogin() {
+	//example to log user login...
     Console.WriteLine("Login has been made :)");
     /* Do your stuff (exec after user authenticate with success)... */
 }
@@ -133,8 +137,14 @@ private static void Chat_OnChatLogin() {
 _executes after user left the channel in any case_
 ```csharp
 Chat.OnChatChannelLeave += Chat_OnChatChannelLeave;
-private static void Chat_OnChatChannelLeave() {
-    Console.WriteLine("User has left channel {0}", chat._channel);
+private static void Chat_OnChatChannelLeave(string channel, bool user_banned) {
+	//example to catch user leaving normally or banned...
+	if(user_banned == false){
+    	Console.WriteLine("User has left channel {0}", channel);
+    	return;
+    }
+    Console.WriteLine("User has been banned from channel {0}", channel);
+    return;
     /* Do your stuff (exec after user left the channel with success)... */
 }
 ```

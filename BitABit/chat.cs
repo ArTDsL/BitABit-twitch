@@ -41,8 +41,14 @@ namespace BitABit {
     /// Delegate to deal with received chat messages (user).
     /// </summary>
     public delegate void OnChatMessageReceived();
+    /// <summary>
+    /// Delegate to deal with user login (user).
+    /// </summary>
     public delegate void OnChatLogin();
-    public delegate void OnChatChannelLeave();
+    /// <summary>
+    /// Delegate to deal when user disconnect from chat (normally or banned) (user).
+    /// </summary>
+    public delegate void OnChatChannelLeave(string channel, bool user_banned);
     /// <summary>
     /// Chat Class.
     /// </summary>
@@ -61,6 +67,7 @@ namespace BitABit {
         private static string? _nick;
         /// <summary>Channel</summary>
         private static string? _channel;
+        private static bool _user_banned = false;
         /// <summary>Twitch IRC Client TCP Connection</summary>
         private static TcpClient? TwitchIRCCli;
         /// <summary>Twitch IRC TCP Connection Stream</summary>
@@ -76,13 +83,15 @@ namespace BitABit {
         /// <summary> Twitch IRC OnTwitchIRCMessageReceived() Loop Cancelation Token Source</summary>
         private static CancellationTokenSource? TwitchIRCLoopCTS;
         /// <summary>Parsed Message List</summary>
-        public static List<MESSAGE_PARSED>? message_parsed;
+        public static List<MESSAGE_PARSED>? message;
         /// <summary> Last Message Cache</summary>
-        public static List<MESSAGE_PARSED>? _last_msgCache { get; set; }
+        private static List<MESSAGE_PARSED>? _last_msgCache { get; set; }
         /// <summary>Event Receive Chat Message</summary>
-        public event OnChatMessageReceived OnChatMessageReceived = new OnChatMessageReceived(fnull);
-        public event OnChatLogin OnChatLogin = new OnChatLogin(fnull);
-        public event OnChatChannelLeave OnChatChannelLeave = new OnChatChannelLeave(fnull);
+        public event OnChatMessageReceived? OnChatMessageReceived = new OnChatMessageReceived(fnull);
+        /// <summary>Event on login into chat</summary>
+        public event OnChatLogin? OnChatLogin = new OnChatLogin(fnull);
+        /// <summary>Event on leave chat normally or banned</summary>
+        public event OnChatChannelLeave? OnChatChannelLeave;
         //Event Variables (loop)
         private static bool NOTIFY_MsgRecv = false;
         private static bool NOTIFY_CTLogin = false;
@@ -247,6 +256,8 @@ namespace BitABit {
             string? _display_name = null;
             string? _host = null;
             string? _param = null;
+            string? _msg_id = null;
+            string? _target_user_id = null;
             bool? isEmotesNull = true;
             bool? isBadgesNull = true;
             bool? isEmoteSetNull = true;
@@ -515,6 +526,16 @@ namespace BitABit {
                             _user_type = ut[0];
                             break;
                         }
+                        case "msg-id": {
+                            string[] msid = property[1].Split(" ");
+                            _msg_id = msid[0];
+                            break;
+                        }
+                        case "target-user-id": {
+                            string[] tui = property[1].Split(" ");
+                            _target_user_id = tui[0];
+                            break;
+                        }
                     }
                     /*
                      * 
@@ -570,11 +591,6 @@ namespace BitABit {
             }
             //--------------- ↑↑ Test Only [ will be removed ] ↑↑ ---------------
             switch(_cmd) {
-                case "PART": {
-                    I_OnChatChannelLeave();
-                    _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "Disconnect from channel " + _channel, DebugMessageType.INFO);
-                    break;
-                }
                 //normal IRC messages
                 case "NOTICE": {
                     //login failed - Don't need to be parsed cause don't come with CAPS (not that i know ;-;)
@@ -588,6 +604,15 @@ namespace BitABit {
                         login_count = 0;
                         Environment.Exit(0);// If user can't login something is dead wrong, application has to be shut down to be fixed.
                     }
+                    if(_msg_id == "msg_banned" || _msg_id == "already_banned" || _msg_id == "untimeout_banned") {
+                        _user_banned = true;
+                    }
+                    break;
+                }
+                case "PART": {
+                    OnChatChannelLeave = new OnChatChannelLeave(I_OnChatChannelLeave);
+                    I_OnChatChannelLeave(_channel, _user_banned);
+                    _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "Disconnect from channel " + _channel, DebugMessageType.INFO);
                     break;
                 }
                 case "PING": {
@@ -648,6 +673,7 @@ namespace BitABit {
                     //<to-user> is one parameter before command but he is also the HOST
                     break;
                 }
+                //in a row
                 case "001":
                 case "002":
                 case "003":
@@ -683,8 +709,8 @@ namespace BitABit {
                 _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "PARAMETER: " + _param, DebugMessageType.INFO);
             }
             //list the LAST MESSAGE
-            message_parsed = new List<MESSAGE_PARSED>();
-            message_parsed.Add(new MESSAGE_PARSED() {
+            message = new List<MESSAGE_PARSED>();
+            message.Add(new MESSAGE_PARSED() {
                 badges = BADGES,
                 color = _color,
                 display_name = _display_name,
@@ -702,9 +728,10 @@ namespace BitABit {
                 command = COMMAND,
                 parameters = _param
             });
-            if(message_parsed != null) { 
-                I_OnChatMessageReceived();
+            if(message == null) {
+                message = null;
             }
+            I_OnChatMessageReceived();
         }
         /// <summary>
         /// Null returning method to avoid null exception on event creation.
@@ -717,8 +744,8 @@ namespace BitABit {
         /// </summary>
         /// <returns>Last message received in chat in List format <see cref="List{MESSAGE_PARSED}"/></returns>
         public List<MESSAGE_PARSED> GetLastMessage() {
-            if(message_parsed.Count() >= 1) {
-                return chat.message_parsed;
+            if(message.Count() >= 1) {
+                return chat.message;
             }
             List<MESSAGE_PARSED> n = new List<MESSAGE_PARSED>();
             n = null;
@@ -770,27 +797,6 @@ namespace BitABit {
             });
             T.Start();
         }
-        //Handle Callbacks
-        private void Callback_Exec() {
-            Thread T = new Thread(() => {
-                while(true) {
-                    if(chat.NOTIFY_MsgRecv == true) {
-                        OnChatMessageReceived.Invoke();
-                        chat.NOTIFY_MsgRecv = false;
-                    }
-                    if(chat.NOTIFY_CTChnlLeave == true) {
-                        OnChatChannelLeave.Invoke();
-                        chat.NOTIFY_CTChnlLeave = false;
-                    }
-                    if(chat.NOTIFY_CTLogin == true) {
-                        OnChatLogin.Invoke();
-                        chat.NOTIFY_CTLogin = false;
-                    }
-                    Thread.Yield(); //avoid deadlocks
-                }
-            });
-            T.Start();
-        }
         //----------------- EVENT HANDLER FUNCTIONS -----------------------
         /// <summary> Handles Received messages (Chat user messages).</summary>
         private void I_OnChatMessageReceived() {
@@ -806,11 +812,42 @@ namespace BitABit {
                 }
             });
         }
-        private void I_OnChatChannelLeave() {
+        private void I_OnChatChannelLeave(string channel, bool user_banned) {
             NOTIFY_CTChnlLeave = true;
         }
         private void I_OnChatLogin() {
             NOTIFY_CTLogin = true;
+        }
+        //----------------- END OF EVENT HANDLER FUNCTIONS ----------------
+        //Handle Callbacks
+        unsafe private void Callback_Exec() {
+            Thread T = new Thread(() => {
+                chat Chat = new chat();
+                while(true) {
+                    if(chat.NOTIFY_MsgRecv == true) {
+                        chat.NOTIFY_MsgRecv = false;
+                        try {
+                            if(message is null) {
+                                return;
+                            } else { 
+                                OnChatMessageReceived.Invoke();
+                            }
+                        } catch(Exception) { /* DON'T NEED A PARSE, JUST TO AVOID NULL ERRORS... */ }
+                    }
+                    if(chat.NOTIFY_CTChnlLeave == true) {
+                        chat.NOTIFY_CTChnlLeave = false;
+                        if(_channel != null) {
+                            OnChatChannelLeave.Invoke(_channel, _user_banned);
+                        }
+                    }
+                    if(chat.NOTIFY_CTLogin == true) {
+                        chat.NOTIFY_CTLogin = false;
+                        OnChatLogin.Invoke();
+                    }
+                    Thread.Yield(); //avoid deadlocks
+                }
+            });
+            T.Start();
         }
     }
     /// <summary>

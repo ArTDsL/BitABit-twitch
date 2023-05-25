@@ -11,5 +11,7 @@
     <RepositoryUrl>https://github.com/ArTDsL/BitABit-twitch</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <Version>0.1.1</Version>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 </Project>
