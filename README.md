@@ -107,4 +107,16 @@ _User must be connected_
 await Chat.SendChatMessage("Hello World from BitABit!");
 ```
 
+## Chat [ EVENTS ]
+
+***Event ‘OnChatMessageReceived’***<br>
+_executes every time that a chat user sent a message_
+```csharp
+Chat.OnChatMessageReceived += Chat_OnChatMessageReceived;
+private static void Chat_OnChatMessageReceived() {
+    Console.WriteLine("New message received.");
+    /* Do your stuff ... */
+}
+```
+
 **more comming soon...**
