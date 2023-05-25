@@ -115,8 +115,29 @@ _executes every time that a chat user sent a message_
 Chat.OnChatMessageReceived += Chat_OnChatMessageReceived;
 private static void Chat_OnChatMessageReceived() {
     Console.WriteLine("New message received.");
-    /* Do your stuff ... */
+    /* Do your stuff (exec after the message has been parsed)... */
 }
 ```
+
+***Event ‘Chat_OnChatLogin’***<br>
+_executes when user authenticate with success in IRC_
+```csharp
+Chat.OnChatLogin += Chat_OnChatLogin;
+private static void Chat_OnChatLogin() {
+    Console.WriteLine("Login has been made :)");
+    /* Do your stuff (exec after user authenticate with success)... */
+}
+```
+
+***Event ‘OnChatChannelLeave’***<br>
+_executes after user left the channel in any case_
+```csharp
+Chat.OnChatChannelLeave += Chat_OnChatChannelLeave;
+private static void Chat_OnChatChannelLeave() {
+    Console.WriteLine("User has left channel {0}", chat._channel);
+    /* Do your stuff (exec after user left the channel with success)... */
+}
+```
+
 
 **more comming soon...**

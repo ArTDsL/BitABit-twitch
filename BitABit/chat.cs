@@ -41,6 +41,8 @@ namespace BitABit {
     /// Delegate to deal with received chat messages (user).
     /// </summary>
     public delegate void OnChatMessageReceived();
+    public delegate void OnChatLogin();
+    public delegate void OnChatChannelLeave();
     /// <summary>
     /// Chat Class.
     /// </summary>
@@ -79,8 +81,12 @@ namespace BitABit {
         public static List<MESSAGE_PARSED>? _last_msgCache { get; set; }
         /// <summary>Event Receive Chat Message</summary>
         public event OnChatMessageReceived OnChatMessageReceived = new OnChatMessageReceived(fnull);
+        public event OnChatLogin OnChatLogin = new OnChatLogin(fnull);
+        public event OnChatChannelLeave OnChatChannelLeave = new OnChatChannelLeave(fnull);
         //Event Variables (loop)
         private static bool NOTIFY_MsgRecv = false;
+        private static bool NOTIFY_CTLogin = false;
+        private static bool NOTIFY_CTChnlLeave = false;
         /// <returns>Set to <c>false</c> to stop the loop (not recommended if you don't wan't to close the connection).</returns>
         private static bool IRCLoop;
         private static readonly string[] IRCCMDS = new string[] { "JOIN", "NICK", "NOTICE", "PART", "PASS", "PING", "PONG", "PRIVMSG", "CLEARCHAT", "CLEARMSG", "GLOBALUSERSTATE", "HOSTTARGET", "NOTICE", "RECONNECT", "ROOMSTATE", "USERNOTICE", "USERSTATE", "WHISPER", "CAP" };
@@ -341,9 +347,8 @@ namespace BitABit {
                                 }
                             }
                         }
-                    } else
                     //parsing emotes
-                    if(splitted_tags[i].Contains("emotes=")) {
+                    } else if(splitted_tags[i].Contains("emotes=")) {
                         if(splitted_tags[i].Contains("/")) {
                             //multi emote parsing
                             string[] emotes_spplited = splitted_tags[i].Replace("emotes=", "").Split("/");
@@ -434,9 +439,8 @@ namespace BitABit {
                                 }
                             }
                         }
-                    } else
                     //parsing emote sets
-                    if(splitted_tags[i].Contains("emote-sets=")) {
+                    } else if(splitted_tags[i].Contains("emote-sets=")) {
                         if(splitted_tags[i].Contains(",")) {
                             //more than 1
                             string[] _emote_sets = splitted_tags[i].Replace("emote-sets=", "").Split(",");
@@ -459,7 +463,7 @@ namespace BitABit {
                                 isEmoteSetNull = false;
                             }
                         }
-                    }
+                    }                    
                     string[] property = splitted_tags[i].Split("=");
                     switch(property[0]) {
                         case "color": {
@@ -566,6 +570,11 @@ namespace BitABit {
             }
             //--------------- ↑↑ Test Only [ will be removed ] ↑↑ ---------------
             switch(_cmd) {
+                case "PART": {
+                    I_OnChatChannelLeave();
+                    _userful.SendConsoleLog("Twitch Chat", "OnTwitchIRCMessageReceived()", "Disconnect from channel " + _channel, DebugMessageType.INFO);
+                    break;
+                }
                 //normal IRC messages
                 case "NOTICE": {
                     //login failed - Don't need to be parsed cause don't come with CAPS (not that i know ;-;)
@@ -652,6 +661,7 @@ namespace BitABit {
                         login_count = 0;
                         retry = 0;
                         IsRetrying = false;
+                        I_OnChatLogin();
                         //Connect user to channel
                         if(_channel != null) {
                             await JoinChannel(_channel);
@@ -692,7 +702,9 @@ namespace BitABit {
                 command = COMMAND,
                 parameters = _param
             });
-            I_OnChatMessageReceived();
+            if(message_parsed != null) { 
+                I_OnChatMessageReceived();
+            }
         }
         /// <summary>
         /// Null returning method to avoid null exception on event creation.
@@ -766,6 +778,14 @@ namespace BitABit {
                         OnChatMessageReceived.Invoke();
                         chat.NOTIFY_MsgRecv = false;
                     }
+                    if(chat.NOTIFY_CTChnlLeave == true) {
+                        OnChatChannelLeave.Invoke();
+                        chat.NOTIFY_CTChnlLeave = false;
+                    }
+                    if(chat.NOTIFY_CTLogin == true) {
+                        OnChatLogin.Invoke();
+                        chat.NOTIFY_CTLogin = false;
+                    }
                     Thread.Yield(); //avoid deadlocks
                 }
             });
@@ -785,6 +805,12 @@ namespace BitABit {
                     _last_msgCache = last_message;
                 }
             });
+        }
+        private void I_OnChatChannelLeave() {
+            NOTIFY_CTChnlLeave = true;
+        }
+        private void I_OnChatLogin() {
+            NOTIFY_CTLogin = true;
         }
     }
     /// <summary>
